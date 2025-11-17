@@ -1,11 +1,19 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { gsap } from "gsap";
+import { MorphSVGPlugin } from "../gsap/MorphSVGPlugin";
+
 import dollarIcon from "../assets/images/icon-dollar.svg";
 import personIcon from "../assets/images/icon-person.svg";
+
+gsap.registerPlugin(MorphSVGPlugin);
 
 export default function TipCalculator() {
   const tipOptions = [5, 10, 15, 25, 50];
   const [selectedTip, setSelectedTip] = useState(null);
+
+  // GSAP refs
+  const svgRef = useRef(null);
 
   const [tipPerPerson, setTipPerPerson] = useState(0);
   const [totalPerPerson, setTotalPerPerson] = useState(0);
@@ -16,6 +24,22 @@ export default function TipCalculator() {
     reset,
     formState: { errors },
   } = useForm();
+
+  const runMorph = () => {
+    gsap.to(svgRef.current, {
+      duration: 5,
+      morphSVG: "#checkmark",
+      ease: "power2.inOut",
+    });
+  };
+
+  const reverseMorph = () => {
+    gsap.to(svgRef.current, {
+      duration: 3,
+      morphSVG: "#circle",
+      ease: "power2.inOut",
+    });
+  };
 
   const onSubmit = (data) => {
     const people = Number(data.people);
@@ -29,6 +53,8 @@ export default function TipCalculator() {
 
       setTipPerPerson(tipAmount);
       setTotalPerPerson(totalAmount);
+
+      runMorph(); // GSAP animation
     }
   };
 
@@ -37,10 +63,41 @@ export default function TipCalculator() {
     setSelectedTip(null);
     setTipPerPerson(0);
     setTotalPerPerson(0);
+
+    reverseMorph(); // GSAP reset animation
   };
 
   return (
-    <div className='flex flex-col md:flex-row gap-8 w-full max-w-[700px] bg-white text-black rounded-3xl p-8'>
+    <div className='flex flex-col md:flex-row gap-8 w-full max-w-[700px] bg-white text-black rounded-3xl p-8 relative'>
+      {/* 🔥 SVG used for GSAP morph */}
+      <svg
+        className='w-24 h-24 mx-auto mb-6 absolute -top-12 -left-10 '
+        viewBox='0 0 100 100'
+      >
+        {/* HOLLOW CIRCLE (Default Shape) */}
+        <path
+          id='circle'
+          ref={svgRef}
+          fill='none'
+          stroke='hsl(172, 67%, 45%)'
+          strokeWidth='8'
+          d='
+      M50 10
+      A40 40 0 1 1 49.999 10
+    '
+        />
+
+        {/* CHECKMARK (Target Shape – hidden) */}
+        <path
+          id='checkmark'
+          fill='none'
+          stroke='hsl(172, 67%, 45%)'
+          strokeWidth='8'
+          d='M20 55 L40 75 L80 30'
+          style={{ visibility: "hidden" }}
+        />
+      </svg>
+
       <form onSubmit={handleSubmit(onSubmit)} className='w-full md:w-1/2'>
         <InputField
           label='Bill'
@@ -90,8 +147,8 @@ export default function TipCalculator() {
           type='submit'
           className='
             w-full bg-primary text-white py-3 rounded mt-4 
-            text-lg tracking-wide font-bold 
-            hover:bg-hover-accent-light hover:text-hover-dark-text hover:cursor-pointer
+            text-lg tracking-wide font-bold hover:cursor-pointer
+            hover:bg-hover-accent-light hover:text-hover-dark-text
           '
         >
           Calculate
@@ -118,7 +175,7 @@ export default function TipCalculator() {
   );
 }
 
-/* ---------- Reusable Components ---------- */
+/* ------------------- Reusable Components ------------------- */
 
 function InputField({ label, icon, register, error }) {
   return (
@@ -167,7 +224,7 @@ function TipButton({ tip, selectedTip, onSelect }) {
         p-3 rounded-md font-bold text-lg tracking-wide transition hover:cursor-pointer
         ${
           isActive
-            ? "bg-accent text-primary "
+            ? "bg-accent text-primary"
             : "bg-primary text-white hover:bg-hover-accent-light hover:text-hover-dark-text"
         }
       `}
