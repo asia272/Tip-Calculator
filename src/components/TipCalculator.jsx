@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { gsap } from "gsap";
 import { MorphSVGPlugin } from "../gsap/MorphSVGPlugin";
+import SVG from "./Svg";
 
 import dollarIcon from "../assets/images/icon-dollar.svg";
 import personIcon from "../assets/images/icon-person.svg";
@@ -70,33 +71,7 @@ export default function TipCalculator() {
   return (
     <div className='flex flex-col md:flex-row gap-8 w-full max-w-[700px] bg-white text-black rounded-3xl p-8 relative'>
       {/* 🔥 SVG used for GSAP morph */}
-      <svg
-        className='w-24 h-24 mx-auto mb-6 absolute -top-12 -left-10 '
-        viewBox='0 0 100 100'
-      >
-        {/* HOLLOW CIRCLE (Default Shape) */}
-        <path
-          id='circle'
-          ref={svgRef}
-          fill='none'
-          stroke='hsl(172, 67%, 45%)'
-          strokeWidth='8'
-          d='
-      M50 10
-      A40 40 0 1 1 49.999 10
-    '
-        />
-
-        {/* CHECKMARK (Target Shape – hidden) */}
-        <path
-          id='checkmark'
-          fill='none'
-          stroke='hsl(172, 67%, 45%)'
-          strokeWidth='8'
-          d='M20 55 L40 75 L80 30'
-          style={{ visibility: "hidden" }}
-        />
-      </svg>
+      <SVG svgRef={svgRef} className='-top-12 -left-10' />
 
       <form onSubmit={handleSubmit(onSubmit)} className='w-full md:w-1/2'>
         <InputField
@@ -171,6 +146,8 @@ export default function TipCalculator() {
           RESET
         </button>
       </div>
+
+      <SVG svgRef={svgRef} className='-bottom-12 -right-10' />
     </div>
   );
 }
