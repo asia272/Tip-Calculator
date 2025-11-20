@@ -14,7 +14,8 @@ export default function TipCalculator() {
   const [selectedTip, setSelectedTip] = useState(null);
 
   // GSAP refs
-  const svgRef = useRef(null);
+  const svgRef1 = useRef(null);
+  const svgRef2 = useRef(null);
 
   const [tipPerPerson, setTipPerPerson] = useState(0);
   const [totalPerPerson, setTotalPerPerson] = useState(0);
@@ -27,17 +28,17 @@ export default function TipCalculator() {
   } = useForm();
 
   const runMorph = () => {
-    gsap.to(svgRef.current, {
+    gsap.to([svgRef1.current, svgRef2.current], {
       duration: 5,
-      morphSVG: "#checkmark",
+      morphSVG: "#circle",
       ease: "power2.inOut",
     });
   };
 
   const reverseMorph = () => {
-    gsap.to(svgRef.current, {
+    gsap.to([svgRef1.current, svgRef2.current], {
       duration: 3,
-      morphSVG: "#circle",
+      morphSVG: "#checkmark",
       ease: "power2.inOut",
     });
   };
@@ -71,7 +72,7 @@ export default function TipCalculator() {
   return (
     <div className='flex flex-col md:flex-row gap-8 w-full max-w-[700px] bg-white text-black rounded-3xl p-8 relative'>
       {/* 🔥 SVG used for GSAP morph */}
-      <SVG svgRef={svgRef} className='-top-12 -left-10' />
+      <SVG svgRef={svgRef1} className='-top-12 -left-10' />
 
       <form onSubmit={handleSubmit(onSubmit)} className='w-full md:w-1/2'>
         <InputField
@@ -147,7 +148,7 @@ export default function TipCalculator() {
         </button>
       </div>
 
-      <SVG svgRef={svgRef} className='-bottom-12 -right-10' />
+      <SVG svgRef={svgRef2} className='-bottom-12 -right-10' />
     </div>
   );
 }
