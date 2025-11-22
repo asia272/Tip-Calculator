@@ -1,4 +1,4 @@
-// TipCalculator with automatic calculation + automatic GSAP morph animations
+// TipCalculator with elastic buttons + rolling numbers + staggered entrance + morph animations
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { gsap } from "gsap";
@@ -18,6 +18,16 @@ export default function TipCalculator() {
   const svgRef1 = useRef(null);
   const svgRef2 = useRef(null);
 
+  // Stagger animation refs
+  const containerRef = useRef(null);
+  const inputsRef = useRef([]);
+  const tipButtonsRef = useRef([]);
+  const resultsRef = useRef(null);
+
+  // Rolling numbers refs
+  const tipAmountRef = useRef(null);
+  const totalAmountRef = useRef(null);
+
   const [tipPerPerson, setTipPerPerson] = useState(0);
   const [totalPerPerson, setTotalPerPerson] = useState(0);
 
@@ -31,6 +41,86 @@ export default function TipCalculator() {
   const watchBill = watch("bill");
   const watchPeople = watch("people");
   const watchCustomTip = watch("customTip");
+
+  // Staggered entrance animation on component mount
+  useEffect(() => {
+    const tl = gsap.timeline();
+
+    tl.fromTo(
+      containerRef.current,
+      { y: 100, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.8, ease: "power2.out" },
+    )
+      .fromTo(
+        inputsRef.current,
+        { y: 30, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6, stagger: 0.15, ease: "power2.out" },
+        "-=0.3",
+      )
+      .fromTo(
+        tipButtonsRef.current,
+        { scale: 0, opacity: 0 },
+        {
+          scale: 1,
+          opacity: 1,
+          duration: 0.5,
+          stagger: 0.1,
+          ease: "back.out(1.7)",
+        },
+        "-=0.2",
+      )
+      .fromTo(
+        resultsRef.current,
+        { x: 50, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.7, ease: "power2.out" },
+        "-=0.2",
+      );
+
+    return () => {
+      tl.kill();
+    };
+  }, []);
+
+  // Elastic bounce animation for tip buttons
+  const elasticBounce = (element) => {
+    if (!element) return;
+
+    const tl = gsap.timeline();
+
+    tl.to(element, {
+      scale: 0.95,
+      duration: 0.1,
+      ease: "power2.in",
+    })
+      .to(element, {
+        scale: 1.1,
+        duration: 0.2,
+        ease: "power2.out",
+      })
+      .to(element, {
+        scale: 1,
+        duration: 0.3,
+        ease: "elastic.out(1.2, 0.5)", // This creates the jelly effect
+      });
+
+    return tl;
+  };
+
+  // Rolling numbers animation function
+  const animateNumber = (element, targetValue, duration = 1.5) => {
+    if (!element) return;
+
+    gsap.to(element, {
+      innerText: targetValue,
+      duration: duration,
+      snap: { innerText: 0.01 },
+      ease: "power2.out",
+      onUpdate: function () {
+        const currentValue = parseFloat(element.innerText);
+        element.innerText = currentValue.toFixed(2);
+      },
+    });
+  };
 
   const runMorph = () => {
     gsap.to([svgRef1.current, svgRef2.current], {
@@ -48,6 +138,12 @@ export default function TipCalculator() {
     });
   };
 
+  // Handle tip selection with bounce animation
+  const handleTipSelect = (tip, element) => {
+    setSelectedTip(tip);
+    elasticBounce(element);
+  };
+
   // Auto-calc + auto animation
   useEffect(() => {
     const bill = Number(watchBill);
@@ -59,33 +155,77 @@ export default function TipCalculator() {
       const tipAmount = (bill * (tipPercent / 100)) / people;
       const totalAmount = bill / people + tipAmount;
 
+      if (tipAmountRef.current) {
+        animateNumber(tipAmountRef.current, tipAmount, 1.2);
+      }
+
+      if (totalAmountRef.current) {
+        animateNumber(totalAmountRef.current, totalAmount, 1.5);
+      }
+
       setTipPerPerson(tipAmount);
       setTotalPerPerson(totalAmount);
 
-      runMorph(); // Animation on every valid change
+      runMorph();
+    } else {
+      if (tipAmountRef.current) {
+        animateNumber(tipAmountRef.current, 0, 0.8);
+      }
+
+      if (totalAmountRef.current) {
+        animateNumber(totalAmountRef.current, 0, 0.8);
+      }
     }
   }, [watchBill, watchPeople, watchCustomTip, selectedTip]);
 
   const handleReset = () => {
     reset();
     setSelectedTip(null);
+
+    if (tipAmountRef.current) {
+      animateNumber(tipAmountRef.current, 0, 0.8);
+    }
+
+    if (totalAmountRef.current) {
+      animateNumber(totalAmountRef.current, 0, 0.8);
+    }
+
     setTipPerPerson(0);
     setTotalPerPerson(0);
     reverseMorph();
   };
 
+  // Add refs to inputs array
+  const addToInputsRef = (el) => {
+    if (el && !inputsRef.current.includes(el)) {
+      inputsRef.current.push(el);
+    }
+  };
+
+  // Add refs to tip buttons array
+  const addToTipButtonsRef = (el) => {
+    if (el && !tipButtonsRef.current.includes(el)) {
+      tipButtonsRef.current.push(el);
+    }
+  };
+
   return (
-    <div className='flex flex-col md:flex-row gap-8 w-full max-w-[700px] bg-white text-black rounded-3xl p-8 relative'>
+    <div
+      ref={containerRef}
+      className='flex flex-col md:flex-row gap-8 w-full max-w-[700px] bg-white text-black rounded-3xl p-8 relative opacity-0'
+    >
       {/* GSAP SVG */}
       <SVG svgRef={svgRef1} className='-top-12 -left-10' />
 
       <div className='w-full md:w-1/2'>
-        <InputField
-          label='Bill'
-          icon={dollarIcon}
-          register={register("bill", { required: true, min: 1 })}
-          error={errors.bill}
-        />
+        <div ref={addToInputsRef}>
+          <InputField
+            label='Bill'
+            icon={dollarIcon}
+            register={register("bill", { required: true, min: 1 })}
+            error={errors.bill}
+          />
+        </div>
 
         <div className='mb-8'>
           <label className='text-sm text-neutral-gray font-semibold'>
@@ -93,42 +233,58 @@ export default function TipCalculator() {
           </label>
 
           <div className='grid grid-cols-3 gap-3 my-3'>
-            {tipOptions.map((tip) => (
-              <TipButton
-                key={tip}
-                tip={tip}
-                selectedTip={selectedTip}
-                onSelect={() => setSelectedTip(tip)}
-              />
+            {tipOptions.map((tip, index) => (
+              <div key={tip} ref={addToTipButtonsRef} className='opacity-0'>
+                <TipButton
+                  tip={tip}
+                  selectedTip={selectedTip}
+                  onSelect={handleTipSelect}
+                />
+              </div>
             ))}
 
-            <input
-              type='number'
-              {...register("customTip")}
-              placeholder='Custom'
-              onFocus={() => setSelectedTip(null)}
-              className='p-3 text-lg tracking-wide rounded-md font-bold text-primary text-center bg-neutral-light outline-none focus:ring-2 focus:ring-accent'
-            />
+            <div ref={addToTipButtonsRef} className='opacity-0'>
+              <input
+                type='number'
+                {...register("customTip")}
+                placeholder='Custom'
+                onFocus={() => setSelectedTip(null)}
+                className='p-3 text-lg tracking-wide rounded-md font-bold text-primary text-center bg-neutral-light outline-none focus:ring-2 focus:ring-accent w-full'
+              />
+            </div>
           </div>
         </div>
 
-        <InputField
-          label='Number of People'
-          icon={personIcon}
-          register={register("people", { required: true, min: 1 })}
-          error={errors.people}
-        />
+        <div ref={addToInputsRef}>
+          <InputField
+            label='Number of People'
+            icon={personIcon}
+            register={register("people", { required: true, min: 1 })}
+            error={errors.people}
+          />
+        </div>
       </div>
 
-      <div className='flex flex-col justify-between w-full md:w-1/2 bg-primary text-white p-8 rounded-xl'>
+      <div
+        ref={resultsRef}
+        className='flex flex-col justify-between w-full md:w-1/2 bg-primary text-white p-8 rounded-xl opacity-0'
+      >
         <div>
-          <ResultRow label='Tip Amount' value={tipPerPerson} />
-          <ResultRow label='Total' value={totalPerPerson} />
+          <ResultRow
+            label='Tip Amount'
+            value={tipPerPerson}
+            valueRef={tipAmountRef}
+          />
+          <ResultRow
+            label='Total'
+            value={totalPerPerson}
+            valueRef={totalAmountRef}
+          />
         </div>
 
         <button
           onClick={handleReset}
-          className='bg-accent text-primary font-bold text-lg tracking-wide rounded p-3 hover:bg-neutral-pale hover:cursor-pointer'
+          className='bg-accent text-primary font-bold text-lg tracking-wide rounded p-3 hover:bg-neutral-pale hover:cursor-pointer mt-4'
         >
           RESET
         </button>
@@ -171,27 +327,35 @@ function InputField({ label, icon, register, error }) {
   );
 }
 
+// Enhanced TipButton with elastic bounce
 function TipButton({ tip, selectedTip, onSelect }) {
   const isActive = selectedTip === tip;
+  const buttonRef = useRef(null);
+
+  const handleClick = () => {
+    onSelect(tip, buttonRef.current);
+  };
 
   return (
     <button
+      ref={buttonRef}
       type='button'
-      onClick={onSelect}
+      onClick={handleClick}
       aria-pressed={isActive}
       aria-label={`Select ${tip}% tip`}
-      className={`p-3 rounded-md font-bold text-lg tracking-wide transition hover:cursor-pointer ${
+      className={`p-3 rounded-md font-bold text-lg tracking-wide transition hover:cursor-pointer w-full relative overflow-hidden ${
         isActive
           ? "bg-accent text-primary outline-2 outline-accent"
           : "bg-primary text-white hover:bg-hover-accent-light hover:text-hover-dark-text"
       }`}
     >
-      {tip}%
+      {tip}%{/* Optional: Add a subtle shine effect on click */}
+      <span className='absolute inset-0 bg-white opacity-0 transition-opacity duration-200'></span>
     </button>
   );
 }
 
-function ResultRow({ label, value }) {
+function ResultRow({ label, value, valueRef }) {
   return (
     <div className='flex justify-between mb-10'>
       <div>
@@ -199,7 +363,10 @@ function ResultRow({ label, value }) {
         <p className='text-sm tracking-wide text-neutral-gray'>/ person</p>
       </div>
 
-      <p className='text-4xl tracking-wide font-bold text-accent'>
+      <p
+        ref={valueRef}
+        className='text-4xl tracking-wide font-bold text-accent'
+      >
         ${value.toFixed(2)}
       </p>
     </div>
