@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+// TipCalculator with automatic calculation + automatic GSAP morph animations
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { gsap } from "gsap";
 import { MorphSVGPlugin } from "../gsap/MorphSVGPlugin";
@@ -22,14 +23,18 @@ export default function TipCalculator() {
 
   const {
     register,
-    handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm();
 
+  const watchBill = watch("bill");
+  const watchPeople = watch("people");
+  const watchCustomTip = watch("customTip");
+
   const runMorph = () => {
     gsap.to([svgRef1.current, svgRef2.current], {
-      duration: 5,
+      duration: 1.2,
       morphSVG: "#circle",
       ease: "power2.inOut",
     });
@@ -37,44 +42,44 @@ export default function TipCalculator() {
 
   const reverseMorph = () => {
     gsap.to([svgRef1.current, svgRef2.current], {
-      duration: 3,
+      duration: 1,
       morphSVG: "#checkmark",
       ease: "power2.inOut",
     });
   };
 
-  const onSubmit = (data) => {
-    const people = Number(data.people);
-    const bill = Number(data.bill);
+  // Auto-calc + auto animation
+  useEffect(() => {
+    const bill = Number(watchBill);
+    const people = Number(watchPeople);
     const tipPercent =
-      selectedTip !== null ? selectedTip : Number(data.customTip) || 0;
+      selectedTip !== null ? selectedTip : Number(watchCustomTip) || 0;
 
-    if (people > 0) {
+    if (bill > 0 && people > 0) {
       const tipAmount = (bill * (tipPercent / 100)) / people;
       const totalAmount = bill / people + tipAmount;
 
       setTipPerPerson(tipAmount);
       setTotalPerPerson(totalAmount);
 
-      runMorph(); // GSAP animation
+      runMorph(); // Animation on every valid change
     }
-  };
+  }, [watchBill, watchPeople, watchCustomTip, selectedTip]);
 
   const handleReset = () => {
     reset();
     setSelectedTip(null);
     setTipPerPerson(0);
     setTotalPerPerson(0);
-
-    reverseMorph(); // GSAP reset animation
+    reverseMorph();
   };
 
   return (
     <div className='flex flex-col md:flex-row gap-8 w-full max-w-[700px] bg-white text-black rounded-3xl p-8 relative'>
-      {/* 🔥 SVG used for GSAP morph */}
+      {/* GSAP SVG */}
       <SVG svgRef={svgRef1} className='-top-12 -left-10' />
 
-      <form onSubmit={handleSubmit(onSubmit)} className='w-full md:w-1/2'>
+      <div className='w-full md:w-1/2'>
         <InputField
           label='Bill'
           icon={dollarIcon}
@@ -102,12 +107,7 @@ export default function TipCalculator() {
               {...register("customTip")}
               placeholder='Custom'
               onFocus={() => setSelectedTip(null)}
-              className='
-                p-3 text-lg tracking-wide rounded-md font-bold
-                text-primary text-center
-                bg-neutral-light outline-none
-                focus:ring-2 focus:ring-accent
-              '
+              className='p-3 text-lg tracking-wide rounded-md font-bold text-primary text-center bg-neutral-light outline-none focus:ring-2 focus:ring-accent'
             />
           </div>
         </div>
@@ -118,18 +118,7 @@ export default function TipCalculator() {
           register={register("people", { required: true, min: 1 })}
           error={errors.people}
         />
-
-        <button
-          type='submit'
-          className='
-            w-full bg-primary text-white py-3 rounded mt-4 
-            text-lg tracking-wide font-bold hover:cursor-pointer
-            hover:bg-hover-accent-light hover:text-hover-dark-text
-          '
-        >
-          Calculate
-        </button>
-      </form>
+      </div>
 
       <div className='flex flex-col justify-between w-full md:w-1/2 bg-primary text-white p-8 rounded-xl'>
         <div>
@@ -139,10 +128,7 @@ export default function TipCalculator() {
 
         <button
           onClick={handleReset}
-          className='
-            bg-accent text-primary font-bold text-lg tracking-wide 
-            rounded p-3 hover:bg-neutral-pale hover:cursor-pointer
-          '
+          className='bg-accent text-primary font-bold text-lg tracking-wide rounded p-3 hover:bg-neutral-pale hover:cursor-pointer'
         >
           RESET
         </button>
@@ -154,7 +140,6 @@ export default function TipCalculator() {
 }
 
 /* ------------------- Reusable Components ------------------- */
-
 function InputField({ label, icon, register, error }) {
   return (
     <div className='mb-8'>
@@ -173,12 +158,7 @@ function InputField({ label, icon, register, error }) {
           type='number'
           placeholder='0'
           {...register}
-          className='
-            w-full bg-neutral-light p-2 pl-12 pr-3 
-            text-right text-lg tracking-wide
-            text-primary rounded-md font-bold 
-            outline-none focus:ring-2 focus:ring-accent
-          '
+          className='w-full bg-neutral-light p-2 pl-12 pr-3 text-right text-lg tracking-wide text-primary rounded-md font-bold outline-none focus:ring-2 focus:ring-accent'
         />
       </div>
 
@@ -198,14 +178,13 @@ function TipButton({ tip, selectedTip, onSelect }) {
     <button
       type='button'
       onClick={onSelect}
-      className={`
-        p-3 rounded-md font-bold text-lg tracking-wide transition hover:cursor-pointer
-        ${
-          isActive
-            ? "bg-accent text-primary"
-            : "bg-primary text-white hover:bg-hover-accent-light hover:text-hover-dark-text"
-        }
-      `}
+      aria-pressed={isActive}
+      aria-label={`Select ${tip}% tip`}
+      className={`p-3 rounded-md font-bold text-lg tracking-wide transition hover:cursor-pointer ${
+        isActive
+          ? "bg-accent text-primary outline-2 outline-accent"
+          : "bg-primary text-white hover:bg-hover-accent-light hover:text-hover-dark-text"
+      }`}
     >
       {tip}%
     </button>
