@@ -1,4 +1,4 @@
-// TipCalculator with elastic buttons + rolling numbers + staggered entrance + morph animations
+// TipCalculator (updated with numeric-span fix, killTweensOf, debounce)
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { gsap } from "gsap";
@@ -24,7 +24,7 @@ export default function TipCalculator() {
   const tipButtonsRef = useRef([]);
   const resultsRef = useRef(null);
 
-  // Rolling numbers refs
+  // Rolling numbers refs (now numeric-only spans)
   const tipAmountRef = useRef(null);
   const totalAmountRef = useRef(null);
 
@@ -42,7 +42,136 @@ export default function TipCalculator() {
   const watchPeople = watch("people");
   const watchCustomTip = watch("customTip");
 
-  // Staggered entrance animation on component mount
+  /* -------------------------
+     Debounce utility
+  -------------------------- */
+  function useDebounce(callback, delay = 200) {
+    const timeoutRef = useRef(null);
+
+    return (...args) => {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        callback(...args);
+      }, delay);
+    };
+  }
+
+  /* -------------------------
+     GSAP number tween (fixed)
+  -------------------------- */
+  const animateNumber = (element, targetValue, duration = 1.5) => {
+    if (!element) return;
+
+    const target = Number(targetValue) || 0;
+
+    // Kill any previous tweens
+    gsap.killTweensOf(element);
+    gsap.killTweensOf(element._gsapNumberTweenObj);
+
+    const start = parseFloat(element.innerText.replace(/,/g, "")) || 0;
+
+    const tweenObj = { val: start };
+    element._gsapNumberTweenObj = tweenObj;
+
+    gsap.to(tweenObj, {
+      val: target,
+      duration,
+      ease: "power2.out",
+      onUpdate() {
+        element.innerText = tweenObj.val.toFixed(2);
+      },
+      onComplete() {
+        element.innerText = target.toFixed(2);
+      },
+    });
+  };
+
+  /* -------------------------
+     SVG morph anims
+  -------------------------- */
+  const runMorph = () => {
+    gsap.to([svgRef1.current, svgRef2.current], {
+      duration: 1.2,
+      morphSVG: "#circle",
+      ease: "power2.inOut",
+    });
+  };
+
+  const reverseMorph = () => {
+    gsap.to([svgRef1.current, svgRef2.current], {
+      duration: 1,
+      morphSVG: "#checkmark",
+      ease: "power2.inOut",
+    });
+  };
+
+  /* -------------------------
+     Elastic bounce for buttons
+  -------------------------- */
+  const elasticBounce = (element) => {
+    if (!element) return;
+
+    gsap.killTweensOf(element);
+
+    const tl = gsap.timeline();
+
+    tl.to(element, {
+      scale: 0.95,
+      duration: 0.1,
+      ease: "power2.in",
+    })
+      .to(element, {
+        scale: 1.1,
+        duration: 0.2,
+        ease: "power2.out",
+      })
+      .to(element, {
+        scale: 1,
+        duration: 0.3,
+        ease: "elastic.out(1.2, 0.5)",
+      });
+  };
+
+  const handleTipSelect = (tip, element) => {
+    setSelectedTip(tip);
+    elasticBounce(element);
+  };
+
+  /* -------------------------
+     Debounced calculation
+  -------------------------- */
+  const runCalculation = () => {
+    const bill = Number(watchBill);
+    const people = Number(watchPeople);
+    const tipPercent =
+      selectedTip !== null ? selectedTip : Number(watchCustomTip) || 0;
+
+    if (bill > 0 && people > 0) {
+      const tipAmount = (bill * (tipPercent / 100)) / people;
+      const totalAmount = bill / people + tipAmount;
+
+      animateNumber(tipAmountRef.current, tipAmount, 1.2);
+      animateNumber(totalAmountRef.current, totalAmount, 1.5);
+
+      setTipPerPerson(tipAmount);
+      setTotalPerPerson(totalAmount);
+
+      runMorph();
+    } else {
+      animateNumber(tipAmountRef.current, 0, 0.8);
+      animateNumber(totalAmountRef.current, 0, 0.8);
+    }
+  };
+
+  const debouncedCalc = useDebounce(runCalculation, 200);
+
+  useEffect(() => {
+    debouncedCalc();
+  }, [watchBill, watchPeople, watchCustomTip, selectedTip]);
+
+  /* -------------------------
+     Mount stagger animation
+  -------------------------- */
   useEffect(() => {
     const tl = gsap.timeline();
 
@@ -76,139 +205,43 @@ export default function TipCalculator() {
         "-=0.2",
       );
 
-    return () => {
-      tl.kill();
-    };
+    return () => tl.kill();
   }, []);
 
-  // Elastic bounce animation for tip buttons
-  const elasticBounce = (element) => {
-    if (!element) return;
-
-    const tl = gsap.timeline();
-
-    tl.to(element, {
-      scale: 0.95,
-      duration: 0.1,
-      ease: "power2.in",
-    })
-      .to(element, {
-        scale: 1.1,
-        duration: 0.2,
-        ease: "power2.out",
-      })
-      .to(element, {
-        scale: 1,
-        duration: 0.3,
-        ease: "elastic.out(1.2, 0.5)", // This creates the jelly effect
-      });
-
-    return tl;
-  };
-
-  // Rolling numbers animation function
-  const animateNumber = (element, targetValue, duration = 1.5) => {
-    if (!element) return;
-
-    gsap.to(element, {
-      innerText: targetValue,
-      duration: duration,
-      snap: { innerText: 0.01 },
-      ease: "power2.out",
-      onUpdate: function () {
-        const currentValue = parseFloat(element.innerText);
-        element.innerText = currentValue.toFixed(2);
-      },
-    });
-  };
-
-  const runMorph = () => {
-    gsap.to([svgRef1.current, svgRef2.current], {
-      duration: 1.2,
-      morphSVG: "#circle",
-      ease: "power2.inOut",
-    });
-  };
-
-  const reverseMorph = () => {
-    gsap.to([svgRef1.current, svgRef2.current], {
-      duration: 1,
-      morphSVG: "#checkmark",
-      ease: "power2.inOut",
-    });
-  };
-
-  // Handle tip selection with bounce animation
-  const handleTipSelect = (tip, element) => {
-    setSelectedTip(tip);
-    elasticBounce(element);
-  };
-
-  // Auto-calc + auto animation
-  useEffect(() => {
-    const bill = Number(watchBill);
-    const people = Number(watchPeople);
-    const tipPercent =
-      selectedTip !== null ? selectedTip : Number(watchCustomTip) || 0;
-
-    if (bill > 0 && people > 0) {
-      const tipAmount = (bill * (tipPercent / 100)) / people;
-      const totalAmount = bill / people + tipAmount;
-
-      if (tipAmountRef.current) {
-        animateNumber(tipAmountRef.current, tipAmount, 1.2);
-      }
-
-      if (totalAmountRef.current) {
-        animateNumber(totalAmountRef.current, totalAmount, 1.5);
-      }
-
-      setTipPerPerson(tipAmount);
-      setTotalPerPerson(totalAmount);
-
-      runMorph();
-    } else {
-      if (tipAmountRef.current) {
-        animateNumber(tipAmountRef.current, 0, 0.8);
-      }
-
-      if (totalAmountRef.current) {
-        animateNumber(totalAmountRef.current, 0, 0.8);
-      }
-    }
-  }, [watchBill, watchPeople, watchCustomTip, selectedTip]);
-
+  /* -------------------------
+     Reset
+  -------------------------- */
   const handleReset = () => {
     reset();
     setSelectedTip(null);
 
-    if (tipAmountRef.current) {
-      animateNumber(tipAmountRef.current, 0, 0.8);
-    }
-
-    if (totalAmountRef.current) {
-      animateNumber(totalAmountRef.current, 0, 0.8);
-    }
+    animateNumber(tipAmountRef.current, 0, 0.8);
+    animateNumber(totalAmountRef.current, 0, 0.8);
 
     setTipPerPerson(0);
     setTotalPerPerson(0);
+
     reverseMorph();
   };
 
-  // Add refs to inputs array
+  /* -------------------------
+     Add refs
+  -------------------------- */
   const addToInputsRef = (el) => {
     if (el && !inputsRef.current.includes(el)) {
       inputsRef.current.push(el);
     }
   };
 
-  // Add refs to tip buttons array
   const addToTipButtonsRef = (el) => {
     if (el && !tipButtonsRef.current.includes(el)) {
       tipButtonsRef.current.push(el);
     }
   };
 
+  /* -------------------------
+     JSX
+  -------------------------- */
   return (
     <div
       ref={containerRef}
@@ -233,7 +266,7 @@ export default function TipCalculator() {
           </label>
 
           <div className='grid grid-cols-3 gap-3 my-3'>
-            {tipOptions.map((tip, index) => (
+            {tipOptions.map((tip) => (
               <div key={tip} ref={addToTipButtonsRef} className='opacity-0'>
                 <TipButton
                   tip={tip}
@@ -296,6 +329,7 @@ export default function TipCalculator() {
 }
 
 /* ------------------- Reusable Components ------------------- */
+
 function InputField({ label, icon, register, error }) {
   return (
     <div className='mb-8'>
@@ -327,7 +361,6 @@ function InputField({ label, icon, register, error }) {
   );
 }
 
-// Enhanced TipButton with elastic bounce
 function TipButton({ tip, selectedTip, onSelect }) {
   const isActive = selectedTip === tip;
   const buttonRef = useRef(null);
@@ -349,7 +382,7 @@ function TipButton({ tip, selectedTip, onSelect }) {
           : "bg-primary text-white hover:bg-hover-accent-light hover:text-hover-dark-text"
       }`}
     >
-      {tip}%{/* Optional: Add a subtle shine effect on click */}
+      {tip}%
       <span className='absolute inset-0 bg-white opacity-0 transition-opacity duration-200'></span>
     </button>
   );
@@ -363,11 +396,11 @@ function ResultRow({ label, value, valueRef }) {
         <p className='text-sm tracking-wide text-neutral-gray'>/ person</p>
       </div>
 
-      <p
-        ref={valueRef}
-        className='text-4xl tracking-wide font-bold text-accent'
-      >
-        ${value.toFixed(2)}
+      <p className='text-4xl tracking-wide font-bold text-accent'>
+        <span aria-hidden>$</span>
+        <span ref={valueRef} style={{ marginLeft: 6 }}>
+          {value.toFixed(2)}
+        </span>
       </p>
     </div>
   );
